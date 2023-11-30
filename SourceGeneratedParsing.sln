@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SourceGeneratedParsing", "SourceGeneratedParsing\SourceGeneratedParsing.csproj", "{7397EBE4-CD87-4B08-A202-C221674B6285}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SourceGeneratedParsing.Example", "SourceGeneratedParsing.Example\SourceGeneratedParsing.Example.csproj", "{C61EF3BC-5BFB-48BC-BDF0-2DA80738EFBD}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{7397EBE4-CD87-4B08-A202-C221674B6285}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7397EBE4-CD87-4B08-A202-C221674B6285}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7397EBE4-CD87-4B08-A202-C221674B6285}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7397EBE4-CD87-4B08-A202-C221674B6285}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C61EF3BC-5BFB-48BC-BDF0-2DA80738EFBD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C61EF3BC-5BFB-48BC-BDF0-2DA80738EFBD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C61EF3BC-5BFB-48BC-BDF0-2DA80738EFBD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C61EF3BC-5BFB-48BC-BDF0-2DA80738EFBD}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
