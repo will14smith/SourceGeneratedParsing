@@ -54,7 +54,7 @@ public class ParserElementParser
                 
                 var input = _input.Slice(_offset);
 
-                if (char.IsUpper(input[0]))
+                if (input[0] == '$' || char.IsUpper(input[0]))
                 {
                     var len = 1;
                     while(len < input.Length && char.IsLetterOrDigit(input[len])) { len++; }
@@ -63,7 +63,7 @@ public class ParserElementParser
                     token = new Token(TokenType.TerminalIdentifier, input.Slice(0, len));
                     return true;
                 }
-
+                
                 if (char.IsLower(input[0]))
                 {
                     var len = 1;
@@ -254,7 +254,7 @@ public class ParserElementParser
             throw new InvalidOperationException($"expected {TokenType.RightParen}, but got {token.Type}");
         }
 
-        return inner;
+        return new ParserElement.Group(inner);
     }
 
     private static ParserElement ParseAtom(ref Lexer lexer)
@@ -270,8 +270,16 @@ public class ParserElementParser
             {
                 fixed (char* ptr = token.Span)
                 {
-                    var identifier = new string(ptr, 0, token.Span.Length);
-                    return new ParserElement.Terminal(identifier);
+                    if (token.Span[0] == '$')
+                    {
+                        var identifier = new string(ptr, 1, token.Span.Length - 1);
+                        return new ParserElement.Terminal(identifier, true);
+                    }
+                    else
+                    {
+                        var identifier = new string(ptr, 0, token.Span.Length);
+                        return new ParserElement.Terminal(identifier, false);
+                    }
                 }
             }
         }

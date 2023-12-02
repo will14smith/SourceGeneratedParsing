@@ -11,7 +11,7 @@ public class Parser
     {
         var nonTerminals = GetNonTerminals(parser);
         var indexedRules = parser.Rules.ToLookup(x => x.Name);
-        var ruleReturns = indexedRules.ToDictionary(x => x.Key, x => GetCommonReturn(x.Select(r => r.Method.ReturnType))); 
+        var ruleReturns = indexedRules.ToDictionary(x => x.Key, x => GetCommonReturn(x.Select(r => (INamedTypeSymbol)r.Method.ReturnType))); 
         
         var writer = new CodeWriter();
 
@@ -69,7 +69,7 @@ public class Parser
                             {
                                 using (writer.AppendBlock($"// alternative {counter++}: {rule.Element}"))
                                 {
-                                    WriteParserRule(writer, parser.TokenType, rule);
+                                    WriteParserRule(writer, parser.TokenType, rule, ruleReturns);
                                     
                                     writer.AppendLine();
                                     writer.AppendLine("lexer = lexerOriginal;");
@@ -112,9 +112,9 @@ public class Parser
         return SourceText.From(writer.ToString(), Encoding.UTF8);
     }
 
-    private static ITypeSymbol GetCommonReturn(IEnumerable<ITypeSymbol> types)
+    private static INamedTypeSymbol GetCommonReturn(IEnumerable<INamedTypeSymbol> types)
     {
-        ITypeSymbol? current = null;
+        INamedTypeSymbol? current = null;
 
         foreach (var type in types)
         {
@@ -132,7 +132,7 @@ public class Parser
         return current ?? throw new InvalidOperationException("couldn't find base");
     }
 
-    private static ITypeSymbol GetCommonReturn(ITypeSymbol a, ITypeSymbol b)
+    private static INamedTypeSymbol GetCommonReturn(INamedTypeSymbol a, INamedTypeSymbol b)
     {
         var aBases = GetBaseClasses(a);
         var bBases = GetBaseClasses(b);
@@ -153,9 +153,9 @@ public class Parser
         throw new NotImplementedException();
     }
 
-    private static IReadOnlyList<ITypeSymbol> GetBaseClasses(ITypeSymbol? a)
+    private static IReadOnlyList<INamedTypeSymbol> GetBaseClasses(INamedTypeSymbol? a)
     {
-        var types = new List<ITypeSymbol>();
+        var types = new List<INamedTypeSymbol>();
 
         while (a != null)
         {
@@ -166,11 +166,11 @@ public class Parser
         return types;
     }
 
-    private static void WriteParserRule(CodeWriter writer, INamedTypeSymbol tokenType, ParserRule rule)
+    private static void WriteParserRule(CodeWriter writer, INamedTypeSymbol tokenType, ParserRule rule, IReadOnlyDictionary<string, INamedTypeSymbol> nonTerminalTypes)
     {
         var counters = new Dictionary<string, int>();
         var stack = new Stack<IDisposable>();
-        var argumentStack = new Stack<(string Variable, bool IsToken)>();
+        var argumentStack = new Stack<(string Variable, ArgumentType Type)>();
         
         WriteParseElement(rule.Element);
 
@@ -178,18 +178,38 @@ public class Parser
         var arity = argumentStack.Count;
 
         var index = 0;
-        foreach (var (variable, isToken) in argumentStack.Reverse())
+        foreach (var (variable, argumentType) in argumentStack.Reverse())
         {
-            if (isToken)
+            var parameterType = rule.Method.Parameters(arity)[index].Type;
+
+            if (argumentType is ArgumentType.Token)
             {
-                var parameterType = rule.Method.Parameters(arity)[index].Type;
                 arguments.Add(SymbolEqualityComparer.Default.Equals(parameterType, tokenType)
                     ? $"{variable}.Type"
                     : variable);
             }
             else
             {
-                arguments.Add(variable);
+                // if param is list and arg is (T, List<T>) - do the prepend dance
+                if (parameterType.AllInterfaces.Any(x => x.FullName() == "System.Collections.IEnumerable") && argumentType is ArgumentType.Group { Inner.Count: 2 } groupArgumentType)
+                {
+                    if (groupArgumentType.Inner[1] is ArgumentType.List listType && listType.Inner == groupArgumentType.Inner[0])
+                    {
+                        var prependedVariable = $"PrependedArgument{Increment("PrependedArgument")}";
+                        writer.AppendLine($"var {prependedVariable} = new List<{groupArgumentType.Inner[0].Source()}> {{ {variable}.Item1 }};");
+                        writer.AppendLine($"{prependedVariable}.AddRange({variable}.Item2);");
+                        
+                        arguments.Add(prependedVariable);
+                    }
+                    else
+                    {
+                        arguments.Add(variable);
+                    }
+                }
+                else
+                {
+                    arguments.Add(variable);
+                }
             }
 
             index++;
@@ -197,7 +217,7 @@ public class Parser
         
         writer.AppendLine($"value = {rule.Method.Construct("_logic", arguments)};");
 
-        writer.AppendLine("_expressionMemo[lexerOriginal.Position] = (lexer.Position - lexerOriginal.Position, ParserResult.Success, value);");
+        writer.AppendLine($"_{rule.Name}Memo[lexerOriginal.Position] = (lexer.Position - lexerOriginal.Position, ParserResult.Success, value);");
         writer.AppendLine("return ParserResult.Success;");
         
         while (stack.Count > 0)
@@ -228,7 +248,14 @@ public class Parser
                     var terminalVariable = $"token{terminalNumber}";
                     
                     stack.Push(writer.AppendBlock($"if (lexer.Next(out var {terminalVariable}) && {terminalVariable}.Type == {tokenType.FullName()}.{terminal})"));
-                    argumentStack.Push((terminalVariable, true));
+                    if (terminal.String)
+                    {
+                        argumentStack.Push(($"new string({terminalVariable}.Span)", new ArgumentType.Token(true)));
+                    }
+                    else
+                    {
+                        argumentStack.Push((terminalVariable, new ArgumentType.Token(false)));
+                    }
                     break;
                 
                 case ParserElement.NonTerminal nonTerminal:
@@ -238,7 +265,7 @@ public class Parser
                     
                     writer.AppendLine($"var {nonTerminalVariablePrefix}Result = {NonTerminalMethodName(nonTerminal.NonTerminalName)}(ref lexer, out var {nonTerminalVariable});");
                     stack.Push(writer.AppendBlock($"if ({nonTerminalVariablePrefix}Result == ParserResult.Success)"));
-                    argumentStack.Push((nonTerminalVariable, false));
+                    argumentStack.Push((nonTerminalVariable, new ArgumentType.Type(nonTerminalTypes[nonTerminal.NonTerminalName])));
                     break;
                 
                 case ParserElement.Sequence sequence:
@@ -251,11 +278,157 @@ public class Parser
                     argumentStack.Pop();
                     break;
 
+                case ParserElement.ZeroOrMore zeroOrMore:
+                    var zeroOrMoreNumber = Increment("ZeroOrMore");
+                    var zeroOrMoreVariablePrefix = $"ZeroOrMore{zeroOrMoreNumber}";
+                    var zeroOrMoreVariable = $"{zeroOrMoreVariablePrefix}Value";
+
+                    var zeroOrMoreType = TypeOf(zeroOrMore.Rule, nonTerminalTypes); 
+                    var zeroOrMoreTypeSource = zeroOrMoreType.Source(); 
+                    using (writer.AppendBlock($"ParserResult {zeroOrMoreVariablePrefix}(ref Lexer lexer, out List<{zeroOrMoreTypeSource}> value)"))
+                    {
+                        var previousArgumentCount1 = argumentStack.Count;
+                        var previousStackCount1 = stack.Count;
+ 
+                        writer.AppendLine($"value = new List<{zeroOrMoreTypeSource}>();");
+
+                        using (writer.AppendBlock("while(true)"))
+                        {
+                            writer.AppendLine("var originalLexer = lexer;");
+                            
+                            WriteParseElement(zeroOrMore.Rule);
+
+                            var zeroOrMoreArgumentCount = argumentStack.Count - previousArgumentCount1;
+                            var zeroOrMoreArguments = new List<(string Variable, ArgumentType Type)>();
+                            for (int i = 0; i < zeroOrMoreArgumentCount; i++)
+                            {
+                                zeroOrMoreArguments.Insert(0, argumentStack.Pop());
+                            }
+
+                            writer.AppendLine($"value.Add(({string.Join(", ", zeroOrMoreArguments.Select(x => x.Variable))}));");
+                            writer.AppendLine("continue;");
+
+                            var zeroOrMoreStackCount = stack.Count - previousStackCount1;
+                            for (int i = 0; i < zeroOrMoreStackCount; i++)
+                            {
+                                stack.Pop().Dispose();
+                            }
+                            
+                            writer.AppendLine("lexer = originalLexer;");
+                            writer.AppendLine("break;");
+                        }
+                        
+                        writer.AppendLine("return ParserResult.Success;");
+                    }
+                    
+                    writer.AppendLine($"var {zeroOrMoreVariablePrefix}Result = {zeroOrMoreVariablePrefix}(ref lexer, out var {zeroOrMoreVariable});");
+                    stack.Push(writer.AppendBlock($"if ({zeroOrMoreVariablePrefix}Result == ParserResult.Success)"));
+                    argumentStack.Push((zeroOrMoreVariable, new ArgumentType.List(zeroOrMoreType)));
+                    
+                    break;
+                
+                case ParserElement.Group group:
+                    var previousArgumentCount = argumentStack.Count;
+                    WriteParseElement(group.Rule);
+                    
+                    var groupNumber = Increment("Group");
+                    var groupVariablePrefix = $"Group{groupNumber}";
+                    var groupVariable = $"{groupVariablePrefix}Value";
+
+                    var groupArgumentCount = argumentStack.Count - previousArgumentCount;
+                    var groupArguments = new List<string>();
+                    var groupArgumentTypes = new List<ArgumentType>();
+                    for (var i = 0; i < groupArgumentCount; i++)
+                    {
+                        var (variable, type) = argumentStack.Pop();
+                        groupArguments.Insert(0, variable);
+                        groupArgumentTypes.Insert(0, type);
+                    }
+                    
+                    writer.AppendLine($"var {groupVariable} = ({string.Join(", ", groupArguments)});");
+                    argumentStack.Push((groupVariable, new ArgumentType.Group(groupArgumentTypes)));
+                    
+                    break;
+                
                 default:
                     writer.AppendLine($"throw new System.NotImplementedException(\"unsupported element {element.GetType().Name}\");");
                     break;
             }
         }
+    }
+
+    private static ArgumentType TypeOf(ParserElement rule, IReadOnlyDictionary<string, INamedTypeSymbol> nonTerminalTypes)
+    {
+        switch (rule)
+        {
+            case ParserElement.Terminal terminal: return new ArgumentType.Token(terminal.String);
+            case ParserElement.NonTerminal nonTerminal: return new ArgumentType.Type(nonTerminalTypes[nonTerminal.NonTerminalName]);
+
+            case ParserElement.Sequence sequence:
+            {
+                var firstType = TypeOf(sequence.First, nonTerminalTypes);
+                var secondType = TypeOf(sequence.Second, nonTerminalTypes);
+
+                if (firstType is ArgumentType.Void) return secondType;
+                if (secondType is ArgumentType.Void) return firstType;
+
+                return new ArgumentType.Group(new [] { firstType, secondType });
+            }
+            case ParserElement.Discard: return new ArgumentType.Void();
+            case ParserElement.Group group: return TypeOf(group.Rule, nonTerminalTypes);
+            
+            default: throw new ArgumentOutOfRangeException(nameof(rule));
+        }
+    }
+
+    private abstract record ArgumentType
+    {
+        public record Void : ArgumentType
+        {
+            public override string Source()
+            {
+                throw new NotImplementedException();
+            }
+        }
+
+        public record Token(bool String) : ArgumentType
+        {
+            public override string Source()
+            {
+                return String ? "string" : "Token";
+            }
+        }
+
+        public record Unknown : ArgumentType
+        {
+            public override string Source()
+            {
+                throw new NotImplementedException();
+            }
+        }
+
+        public record Type(INamedTypeSymbol Symbol) : ArgumentType
+        {
+            public override string Source() => Symbol.FullName()!;
+        }
+
+        public record List(ArgumentType Inner) : ArgumentType
+        {
+            public override string Source()
+            {
+                throw new NotImplementedException();
+            }
+        }
+
+        public record Group(IReadOnlyList<ArgumentType> Inner) : ArgumentType
+        {
+            public override string Source()
+            {
+                throw new NotImplementedException();
+            }
+        }
+
+        public abstract string Source();
     }
 
     private static string NonTerminalMethodName(string nonTerminal) => char.ToUpper(nonTerminal[0]) + nonTerminal.Substring(1);

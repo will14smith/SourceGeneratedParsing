@@ -3,7 +3,7 @@
 public abstract record ParserElement
 {
     // atom
-    public record Terminal(string TokenName) : ParserElement
+    public record Terminal(string TokenName, bool String) : ParserElement
     {
         public override string ToString() => TokenName;
     }
@@ -42,6 +42,11 @@ public abstract record ParserElement
 
     public record AndPredicate(ParserElement Rule) : ParserElement;
     public record NotPredicate(ParserElement Rule) : ParserElement;
+
+    public record Group(ParserElement Rule) : ParserElement
+    {
+        public override string ToString() => $"({Rule})";
+    }
     
     // custom - behaviour is same as Rule but result is not used
     public record Discard(ParserElement Rule) : ParserElement
