@@ -92,7 +92,7 @@ public class ParserSourceGenerator : ISourceGenerator
                 var name = (string)attribute.ConstructorArguments[0].Value!;
                 var match = (string)attribute.ConstructorArguments[1].Value!;
 
-                var element = Parser.ParseElement(match);
+                var element = ParserElementParser.Parse(match);
 
                 switch (member)
                 {

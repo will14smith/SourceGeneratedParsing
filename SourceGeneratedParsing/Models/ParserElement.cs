@@ -17,12 +17,28 @@ public abstract record ParserElement
     // combinators
     public record Sequence(ParserElement First, ParserElement Second) : ParserElement
     {
-        public override string ToString() => $"{First} {Second}";
+        public override string ToString() => $"({First} {Second})";
     }
-    public record Choice(ParserElement First, ParserElement Second) : ParserElement;
-    public record ZeroOrMore(ParserElement Rule) : ParserElement;
-    public record OneOrMore(ParserElement Rule) : ParserElement;
-    public record Optional(ParserElement Rule) : ParserElement;
+
+    public record Choice(ParserElement First, ParserElement Second) : ParserElement
+    {
+        public override string ToString() => $"({First} | {Second})";
+    }
+
+    public record ZeroOrMore(ParserElement Rule) : ParserElement
+    {
+        public override string ToString() => $"({Rule})*";
+    }
+
+    public record OneOrMore(ParserElement Rule) : ParserElement
+    {
+        public override string ToString() => $"({Rule})+";
+    }
+
+    public record Optional(ParserElement Rule) : ParserElement
+    {
+        public override string ToString() => $"({Rule})?";
+    }
 
     public record AndPredicate(ParserElement Rule) : ParserElement;
     public record NotPredicate(ParserElement Rule) : ParserElement;

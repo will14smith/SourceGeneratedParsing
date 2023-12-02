@@ -21,7 +21,16 @@ public abstract record ParseMethod
     public record Class(INamedTypeSymbol Symbol) : ParseMethod
     {
         public override ITypeSymbol ReturnType => Symbol;
-        public override ImmutableArray<IParameterSymbol> Parameters(int arity) => Symbol.Constructors.Single(x => x.Parameters.Length == arity).Parameters;
+        public override ImmutableArray<IParameterSymbol> Parameters(int arity)
+        {
+            if (arity == 1)
+            {
+                // handle record copy constructor
+                return Symbol.Constructors.Single(x => x.Parameters.Length == 1 && !SymbolEqualityComparer.Default.Equals(x.Parameters[0].Type, Symbol)).Parameters;
+            }
+            
+            return Symbol.Constructors.Single(x => x.Parameters.Length == arity).Parameters;
+        }
 
         public override string Construct(string receiver, IReadOnlyList<string> arguments)
         {

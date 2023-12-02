@@ -275,40 +275,4 @@ public class Parser
 
         return nonTerminals;
     }
-
-    public static ParserElement ParseElement(string match)
-    {
-        // nonterminal: [a-z] [A-Za-z0-9]+
-        // terminal: [A-Z] [A-Za-z0-9]+
-        // atom: terminal | nonterminal
-        // discard: [@]? atom
-        // sequence: discard WS sequence
-        
-        var tokens = match.Split(' ');
-        ParserElement? current = null;
-        
-        foreach (var token in tokens)
-        {
-            ParserElement tokenElement;
-            
-            if (token[0] == '@')
-            {
-                var actualToken = token.Substring(1);
-                
-                tokenElement = char.IsUpper(actualToken[0]) 
-                    ? new ParserElement.Discard(new ParserElement.Terminal(actualToken)) 
-                    : new ParserElement.Discard(new ParserElement.NonTerminal(actualToken));
-            }
-            else
-            {
-                tokenElement = char.IsUpper(token[0])
-                    ? new ParserElement.Terminal(token)
-                    : new ParserElement.NonTerminal(token);
-            }
-
-            current = current == null ? tokenElement : new ParserElement.Sequence(current, tokenElement);
-        }
-
-        return current ?? throw new InvalidOperationException("failed to parse");
-    }
 }
