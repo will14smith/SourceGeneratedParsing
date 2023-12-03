@@ -10,7 +10,7 @@ public abstract record ParseMethod
     public record Method(IMethodSymbol Symbol) : ParseMethod
     {
         public override ITypeSymbol ReturnType => Symbol.ReturnType;
-        public override ImmutableArray<IParameterSymbol> Parameters(int arity) => Symbol.Parameters;
+        public override ImmutableArray<IParameterSymbol> Parameters() => Symbol.Parameters;
 
         public override string Construct(string receiver, IReadOnlyList<string> arguments)
         {
@@ -21,15 +21,23 @@ public abstract record ParseMethod
     public record Class(INamedTypeSymbol Symbol) : ParseMethod
     {
         public override ITypeSymbol ReturnType => Symbol;
-        public override ImmutableArray<IParameterSymbol> Parameters(int arity)
+        public override ImmutableArray<IParameterSymbol> Parameters()
         {
-            if (arity == 1)
+            foreach (var constructor in Symbol.Constructors)
             {
-                // handle record copy constructor
-                return Symbol.Constructors.Single(x => x.Parameters.Length == 1 && !SymbolEqualityComparer.Default.Equals(x.Parameters[0].Type, Symbol)).Parameters;
+                switch (constructor.Parameters.Length)
+                {
+                    // handle default constructor
+                    case 0: continue;
+                    
+                    // handle record copy constructor
+                    case 1 when SymbolEqualityComparer.Default.Equals(constructor.Parameters[0].Type, Symbol): continue;
+                    
+                    default: return constructor.Parameters;
+                }
             }
-            
-            return Symbol.Constructors.Single(x => x.Parameters.Length == arity).Parameters;
+
+            throw new InvalidOperationException("missing constructor");
         }
 
         public override string Construct(string receiver, IReadOnlyList<string> arguments)
@@ -39,6 +47,6 @@ public abstract record ParseMethod
     }
 
     public abstract ITypeSymbol ReturnType { get; }
-    public abstract ImmutableArray<IParameterSymbol> Parameters(int arity);
+    public abstract ImmutableArray<IParameterSymbol> Parameters();
     public abstract string Construct(string receiver, IReadOnlyList<string> arguments);
 }
