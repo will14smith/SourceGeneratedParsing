@@ -6,32 +6,35 @@ namespace SourceGeneratedParsing;
 public class ParserContext
 {
     public ParserContext(
-        INamedTypeSymbol typeOfParser, 
-        INamedTypeSymbol typeOfTokenType,
+        INamedTypeSymbol parserSymbol, 
+        INamedTypeSymbol tokenTypeSymbol,
         IReadOnlyList<string> nonTerminalsInDefinitionOrder, 
         ILookup<string, ParserRule> nonTerminalsByName,
-        IReadOnlyDictionary<string, INamedTypeSymbol> nonTerminalTypes)
+        IReadOnlyDictionary<string, INamedTypeSymbol> nonTerminalTypes, IReadOnlyDictionary<string, string> nonTerminalParseMethodNames)
     {
-        TypeOfParser = typeOfParser;
-        TypeOfTokenType = typeOfTokenType;
+        ParserSymbol = parserSymbol;
+        TokenTypeSymbol = tokenTypeSymbol;
         NonTerminalsInDefinitionOrder = nonTerminalsInDefinitionOrder;
         NonTerminalsByName = nonTerminalsByName;
         NonTerminalTypes = nonTerminalTypes;
+        NonTerminalParseMethodNames = nonTerminalParseMethodNames;
     }
 
-    public INamedTypeSymbol TypeOfParser { get; }
-    public INamedTypeSymbol TypeOfTokenType { get; }
+    public INamedTypeSymbol ParserSymbol { get; }
+    public INamedTypeSymbol TokenTypeSymbol { get; }
     public IReadOnlyList<string> NonTerminalsInDefinitionOrder { get; }
     public ILookup<string, ParserRule> NonTerminalsByName { get; }
     public IReadOnlyDictionary<string, INamedTypeSymbol> NonTerminalTypes { get; }
+    public IReadOnlyDictionary<string, string> NonTerminalParseMethodNames { get; }
 
     public static ParserContext Build(ParserDescriptor descriptor)
     {
         var nonTerminalsInDefinitionOrder = descriptor.GetNonTerminalsInDefinitionOrder();
         var nonTerminalsByName = descriptor.Rules.ToLookup(x => x.Name);
-        var nonTerminalTypes = nonTerminalsByName.ToDictionary(x => x.Key, x => GetCommonReturn(x.Select(r => (INamedTypeSymbol)r.Method.ReturnType))); 
-
-        return new ParserContext(descriptor.ParserType, descriptor.TokenType, nonTerminalsInDefinitionOrder, nonTerminalsByName, nonTerminalTypes);
+        var nonTerminalTypes = nonTerminalsByName.ToDictionary(x => x.Key, x => GetCommonReturn(x.Select(r => (INamedTypeSymbol)r.Method.ReturnType)));
+        var nonTerminalParseMethodNames = nonTerminalsInDefinitionOrder.ToDictionary(x => x, NonTerminalMethodName);
+        
+        return new ParserContext(descriptor.ParserType, descriptor.TokenType, nonTerminalsInDefinitionOrder, nonTerminalsByName, nonTerminalTypes, nonTerminalParseMethodNames);
     }
     
     private static INamedTypeSymbol GetCommonReturn(IEnumerable<INamedTypeSymbol> types)
@@ -86,5 +89,10 @@ public class ParserContext
         }
 
         return types;
+    }
+    
+    private static string NonTerminalMethodName(string nonTerminal)
+    {
+        return char.ToUpper(nonTerminal[0]) + nonTerminal.Substring(1);
     }
 }

@@ -3,7 +3,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
 using SourceGeneratedParsing.Models;
 
-namespace SourceGeneratedParsing;
+namespace SourceGeneratedParsing.ParserSource;
 
 [Generator]
 public class ParserSourceGenerator : ISourceGenerator
