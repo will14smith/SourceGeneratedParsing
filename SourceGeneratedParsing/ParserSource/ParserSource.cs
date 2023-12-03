@@ -177,9 +177,9 @@ public abstract class ParserSource
     public class ZeroOrMore : ParserSource
     {
         public ParserSource Inner { get; }
-        public ParserElementType InnerType { get; }
+        public ParserTargetType InnerType { get; }
 
-        public ZeroOrMore(ParserSource inner, ParserElementType innerType)
+        public ZeroOrMore(ParserSource inner, ParserTargetType innerType)
         {
             Inner = inner;
             InnerType = innerType;
@@ -224,9 +224,9 @@ public abstract class ParserSource
     public class OneOrMore : ParserSource
     {
         public ParserSource Inner { get; }
-        public ParserElementType InnerType { get; }
+        public ParserTargetType InnerType { get; }
 
-        public OneOrMore(ParserSource inner, ParserElementType innerType)
+        public OneOrMore(ParserSource inner, ParserTargetType innerType)
         {
             Inner = inner;
             InnerType = innerType;
@@ -281,9 +281,9 @@ public abstract class ParserSource
     public class Optional : ParserSource
     {
         public ParserSource Inner { get; }
-        public ParserElementType InnerType { get; }
+        public ParserTargetType InnerType { get; }
 
-        public Optional(ParserSource inner, ParserElementType innerType)
+        public Optional(ParserSource inner, ParserTargetType innerType)
         {
             Inner = inner;
             InnerType = innerType;
@@ -291,7 +291,7 @@ public abstract class ParserSource
 
         public override ParserSourceOutput WriteParse(ParserSourceContext context, CodeWriter writer)
         {
-            var innerIsVoid = InnerType is ParserElementType.Void;
+            var innerIsVoid = InnerType is ParserTargetType.Void;
             
             var lexerVariable = context.AllocateVariable($"_{nameof(Optional)}OriginalLexer");
             var resultVariable = context.AllocateVariable($"_{nameof(Optional)}Result");
@@ -324,13 +324,13 @@ public abstract class ParserSource
         }
     }
     
-    private static string TypeToSource(ParserElementType type)
+    private static string TypeToSource(ParserTargetType type)
     {
         switch (type)
         {
-            case ParserElementType.String: return "string";
+            case ParserTargetType.String: return "string";
             
-            case ParserElementType.SymbolType symbolType: return symbolType.Symbol.Source()!;
+            case ParserTargetType.SymbolType symbolType: return symbolType.Symbol.Source()!;
             
             default: throw new ArgumentOutOfRangeException(nameof(type));
         }

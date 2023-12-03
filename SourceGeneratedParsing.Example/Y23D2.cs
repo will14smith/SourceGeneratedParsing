@@ -34,12 +34,12 @@ public partial class Y23D2
         var result = parser.ParseGames(ref lexer);
     }
     
-    [Production("games", "(game @(NewLine?))+")]
+    [Production("games", "(game @NewLine?)+")]
     public IReadOnlyCollection<(int Id, IReadOnlyList<IReadOnlyDictionary<Colour, int>> Rounds)> Games(IReadOnlyCollection<(int Id, IReadOnlyList<IReadOnlyDictionary<Colour, int>> Rounds)> games) => games;
     
-    [Production("game", "@Word number @Colon (round @(Semicolon?))+")]
+    [Production("game", "@Word number @Colon (round @Semicolon?)+")]
     public (int Id, IReadOnlyList<IReadOnlyDictionary<Colour, int>> Rounds) Game(int id, IReadOnlyList<IReadOnlyDictionary<Colour, int>> rounds) => (id, rounds);
-    [Production("round", "(colourCount @(Comma?))+")]
+    [Production("round", "(colourCount @Comma?)+")]
     public IReadOnlyDictionary<Colour, int> Round(IReadOnlyList<(Colour Colour, int Count)> counts) => counts.ToDictionary(x => x.Colour, x => x.Count);
     [Production("colourCount", "number colour")]
     public (Colour Colour, int Count) ColourCount(int count, Colour colour) => (colour, count);
