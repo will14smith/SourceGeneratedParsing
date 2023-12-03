@@ -9,6 +9,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "General", "General", "{2A7E
 		README.md = README.md
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SourceGeneratedParsing.Tests", "SourceGeneratedParsing.Tests\SourceGeneratedParsing.Tests.csproj", "{3AC8FD08-A573-4987-A483-8024DD7128D2}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -23,5 +25,9 @@ Global
 		{C61EF3BC-5BFB-48BC-BDF0-2DA80738EFBD}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C61EF3BC-5BFB-48BC-BDF0-2DA80738EFBD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C61EF3BC-5BFB-48BC-BDF0-2DA80738EFBD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3AC8FD08-A573-4987-A483-8024DD7128D2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3AC8FD08-A573-4987-A483-8024DD7128D2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3AC8FD08-A573-4987-A483-8024DD7128D2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3AC8FD08-A573-4987-A483-8024DD7128D2}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

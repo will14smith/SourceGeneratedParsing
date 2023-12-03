@@ -8,6 +8,8 @@ public class Source
 {
     public static SourceText Attributes() =>
         SourceText.From(@"
+using System;
+
 namespace SourceGeneratedParsing
 {
     [AttributeUsage(AttributeTargets.Enum)]
@@ -38,6 +40,8 @@ namespace SourceGeneratedParsing
         var tokenTypeName = tokenTypeSymbol.FullName();
         
         return SourceText.From($@"
+using System;
+
 namespace {parserTypeSymbol.FullNamespace()}
 {{
     public partial class {parserTypeSymbol.Name}

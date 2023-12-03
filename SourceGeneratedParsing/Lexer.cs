@@ -11,6 +11,7 @@ public class Lexer
     {
         var writer = new CodeWriter();
 
+        writer.AppendLine("using System;");
         writer.AppendLine("using System.Text.RegularExpressions;");
         writer.AppendLine();
         
