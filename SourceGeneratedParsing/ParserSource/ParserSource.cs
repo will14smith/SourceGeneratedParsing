@@ -221,6 +221,109 @@ public abstract class ParserSource
         }
     }
     
+    public class OneOrMore : ParserSource
+    {
+        public ParserSource Inner { get; }
+        public ParserElementType InnerType { get; }
+
+        public OneOrMore(ParserSource inner, ParserElementType innerType)
+        {
+            Inner = inner;
+            InnerType = innerType;
+        }
+
+        public override ParserSourceOutput WriteParse(ParserSourceContext context, CodeWriter writer)
+        {
+            var methodName = context.AllocateVariable($"_{nameof(OneOrMore)}");
+            var innerType = TypeToSource(InnerType);
+            using (writer.AppendBlock($"ParserResult {methodName}(ref Lexer lexer, out System.Collections.Generic.List<{innerType}> value)"))
+            {
+                writer.AppendLine("var originalLexer = lexer;");
+
+                writer.AppendLine($"value = new System.Collections.Generic.List<{innerType}>();");
+                
+                using (writer.AppendBlock("while(true)"))
+                {
+                    writer.AppendLine("var originalLexerInner = lexer;");
+
+                    var inner = Inner.WriteParse(context, writer);
+
+                    writer.AppendLine($"value.Add(({string.Join(", ", inner.Outputs)}));");
+                    writer.AppendLine("continue;");
+
+                    inner.Dispose();
+                            
+                    writer.AppendLine("lexer = originalLexerInner;");
+                    writer.AppendLine("break;");
+                }
+                writer.AppendLine();
+                
+                using (writer.AppendBlock("if(value.Count == 0)"))
+                {
+                    writer.AppendLine("lexer = originalLexer;");
+                    writer.AppendLine("return ParserResult.Failed;");
+                }
+                writer.AppendLine();
+
+                writer.AppendLine("return ParserResult.Success;");
+            }
+
+            var resultVariable = context.AllocateVariable($"_{nameof(OneOrMore)}Result");
+            var valueVariable = context.AllocateVariable($"_{nameof(OneOrMore)}Value");
+            
+            writer.AppendLine($"var {resultVariable} = {methodName}(ref lexer, out var {valueVariable});");
+            var postfix = writer.AppendBlock($"if ({resultVariable} == ParserResult.Success)");
+
+            return new ParserSourceOutput(postfix, new[] { valueVariable });
+        }
+    }
+    
+    public class Optional : ParserSource
+    {
+        public ParserSource Inner { get; }
+        public ParserElementType InnerType { get; }
+
+        public Optional(ParserSource inner, ParserElementType innerType)
+        {
+            Inner = inner;
+            InnerType = innerType;
+        }
+
+        public override ParserSourceOutput WriteParse(ParserSourceContext context, CodeWriter writer)
+        {
+            var innerIsVoid = InnerType is ParserElementType.Void;
+            
+            var lexerVariable = context.AllocateVariable($"_{nameof(Optional)}OriginalLexer");
+            var resultVariable = context.AllocateVariable($"_{nameof(Optional)}Result");
+            var valueVariable = context.AllocateVariable($"_{nameof(Optional)}Value");
+            
+            writer.AppendLine($"var {lexerVariable} = lexer;");
+            writer.AppendLine($"var {resultVariable} = ParserResult.Failed;");
+            if (!innerIsVoid)
+            {
+                writer.AppendLine($"{TypeToSource(InnerType)} {valueVariable} = default;");
+            }
+
+            var inner = Inner.WriteParse(context, writer);
+            
+            writer.AppendLine($"{resultVariable} = ParserResult.Success;");
+            if (!innerIsVoid)
+            {
+                writer.AppendLine($"{valueVariable} = ({string.Join(", ", inner.Outputs)})");
+            }
+
+            inner.Dispose();
+
+            using (writer.AppendBlock($"if({resultVariable} == ParserResult.Failed)"))
+            {
+                writer.AppendLine($"lexer = {lexerVariable};");
+            }
+
+            var outputs = innerIsVoid ? Array.Empty<string>() : new [] { valueVariable };
+            return new ParserSourceOutput(new DisposableAction(() => { }), outputs);
+        }
+    }
+    
     private static string TypeToSource(ParserElementType type)
     {
         switch (type)

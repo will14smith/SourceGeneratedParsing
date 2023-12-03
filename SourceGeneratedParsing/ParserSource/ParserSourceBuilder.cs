@@ -18,6 +18,8 @@ public class ParserSourceBuilder
             
             case ParserElement.Sequence sequence: return BuildSequence(context, sequence, type);
             case ParserElement.ZeroOrMore zeroOrMore: return BuildZeroOrMore(context, zeroOrMore, type);
+            case ParserElement.OneOrMore oneOrMore: return BuildOneOrMore(context, oneOrMore, type);
+            case ParserElement.Optional optional: return BuildOptional(context, optional, type);
             case ParserElement.Group group: return BuildGroup(context, group, type);
             case ParserElement.Discard discard: return BuildDiscard(context, discard, type);
             
@@ -106,6 +108,26 @@ public class ParserSourceBuilder
 
         return new ParserSource.ZeroOrMore(inner, listType.Element);
     }
+    
+    private static ParserSource BuildOneOrMore(ParserContext context, ParserElement.OneOrMore oneOrMore, ParserElementType type)
+    {
+        if (type is not ParserElementType.List listType)
+        {
+            throw new NotImplementedException();
+        }
+
+        var inner = Build(context, oneOrMore.Rule, listType.Element);
+
+        return new ParserSource.OneOrMore(inner, listType.Element);
+    }
+    
+    private static ParserSource BuildOptional(ParserContext context, ParserElement.Optional optional, ParserElementType type)
+    {
+        var inner = Build(context, optional.Rule, type);
+
+        return new ParserSource.Optional(inner, type);
+    }
+
     
     private static ParserSource BuildGroup(ParserContext context, ParserElement.Group group, ParserElementType type)
     {
