@@ -60,22 +60,6 @@ public class ParserSourceBuilder
 
     private static ParserSource BuildSequence(ParserContext context, ParserElement.Sequence sequence, ParserElementType type)
     {
-        if (type is ParserElementType.Sequence sequenceType)
-        {
-            var a = Build(context, sequence.First, sequenceType.First);
-            var b = Build(context, sequence.Second, sequenceType.Second);
-
-            return new ParserSource.Sequence(a, b);
-        }
-
-        if (type is ParserElementType.List listType)
-        {
-            var a = Build(context, sequence.First, listType);
-            var b = Build(context, sequence.Second, listType);
-
-            return new ParserSource.SequenceConcat(a, b);
-        }
-
         if (sequence.First is ParserElement.Discard)
         {
             var a = Build(context, sequence.First, new ParserElementType.Void());
@@ -91,7 +75,23 @@ public class ParserSourceBuilder
 
             return new ParserSource.Sequence(a, b);
         }
+        
+        if (type is ParserElementType.Sequence sequenceType)
+        {
+            var a = Build(context, sequence.First, sequenceType.First);
+            var b = Build(context, sequence.Second, sequenceType.Second);
 
+            return new ParserSource.Sequence(a, b);
+        }
+
+        if (type is ParserElementType.List listType)
+        {
+            var a = Build(context, sequence.First, listType);
+            var b = Build(context, sequence.Second, listType);
+
+            return new ParserSource.SequenceConcat(a, b);
+        }
+        
         throw new NotImplementedException();
     }
     

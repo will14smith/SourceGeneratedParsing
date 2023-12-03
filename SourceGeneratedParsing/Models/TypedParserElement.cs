@@ -28,7 +28,16 @@ public record TypedParserElement(ParserElement ParserElement, ParserElementType 
             if (type.ContainingType != null && SymbolEqualityComparer.Default.Equals(type.ContainingType, context.ParserSymbol)) return new ParserElementType.Token();
         }
 
-        var enumerableInterface = type.AllInterfaces.FirstOrDefault(x => x.FullName() == "System.Collections.Generic.IEnumerable");
+        IReadOnlyCollection<INamedTypeSymbol> allInterfaces = type.TypeKind == TypeKind.Interface ? type.AllInterfaces.Prepend(type).ToArray() : type.AllInterfaces;
+        
+        // prevent dictionaries being treated as lists
+        var dictionary = allInterfaces.FirstOrDefault(x => x.FullName() == "System.Collections.Generic.IReadOnlyDictionary");
+        if (dictionary != default)
+        {
+            return new ParserElementType.SymbolType(dictionary);
+        }
+        
+        var enumerableInterface = allInterfaces.FirstOrDefault(x => x.FullName() == "System.Collections.Generic.IEnumerable");
         if (enumerableInterface != default)
         {
             var enumerableTypeArgument = (INamedTypeSymbol)enumerableInterface.TypeArguments[0];

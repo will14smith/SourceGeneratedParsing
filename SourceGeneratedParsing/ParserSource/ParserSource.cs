@@ -227,7 +227,7 @@ public abstract class ParserSource
         {
             case ParserElementType.String: return "string";
             
-            case ParserElementType.SymbolType symbolType: return symbolType.Symbol.FullName()!;
+            case ParserElementType.SymbolType symbolType: return symbolType.Symbol.Source()!;
             
             default: throw new ArgumentOutOfRangeException(nameof(type));
         }
