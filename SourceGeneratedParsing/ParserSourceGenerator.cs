@@ -1,9 +1,9 @@
-﻿using System.Text;
+﻿using System.Text.RegularExpressions;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.Text;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using SourceGeneratedParsing.Models;
 
-namespace SourceGeneratedParsing.ParserSource;
+namespace SourceGeneratedParsing;
 
 [Generator]
 public class ParserSourceGenerator : ISourceGenerator
@@ -13,8 +13,6 @@ public class ParserSourceGenerator : ISourceGenerator
         context.RegisterForPostInitialization(i => i.AddSource("Attributes.cs", Source.Attributes()));
         context.RegisterForSyntaxNotifications(() => new ParserSyntaxReceiver());
     }
-
-    private readonly List<string> _log = new();
     
     public void Execute(GeneratorExecutionContext context)
     {
@@ -44,33 +42,70 @@ public class ParserSourceGenerator : ISourceGenerator
             var fileNamePrefix = parserType.FullName();
             context.AddSource($"{fileNamePrefix}.Token.cs", Source.TokenType(parserType, tokenType));
             
-            var lexer = BuildLexerDescriptor(tokenType);
-            context.AddSource($"{fileNamePrefix}.Lexer.cs", Lexer.Build(parserType, lexer));
+            var lexerResult = BuildLexerDescriptor(tokenType);
+            lexerResult.ReportDiagnostics(context);
+            if (!lexerResult.HasValue) { return; }
+            context.AddSource($"{fileNamePrefix}.Lexer.cs", Lexer.Build(parserType, lexerResult.Value!));
             
             var parser = BuildParserDescriptor(parserType, tokenType);
             context.AddSource($"{fileNamePrefix}.Parser.cs", Parser.Build(parser));
         }
-        
-        context.AddSource("Debug.cs", SourceText.From(string.Join("\n", _log.Select(x => "// " + x)), Encoding.UTF8));
     }
-    private static LexerDescriptor BuildLexerDescriptor(INamedTypeSymbol tokenType)
+    private static Result<LexerDescriptor> BuildLexerDescriptor(INamedTypeSymbol tokenType)
     {
         var rules = new List<LexerRule>();
+        var diagnostics = new List<Diagnostic>();
         
         foreach (var member in tokenType.GetMembers().OfType<IFieldSymbol>())
         {
             var tokenAttributes = member.GetAttributes().Where(x => x.AttributeClass.FullName() == "SourceGeneratedParsing.TokenAttribute");
+
+            var found = false;
             
             foreach (var attribute in tokenAttributes)
             {
                 var regex = (string)attribute.ConstructorArguments[0].Value!;
                 var ignore = attribute.ConstructorArguments.Length > 1 && (bool)attribute.ConstructorArguments[1].Value!;
+
+                if (!IsValidRegex(regex, out var error))
+                {
+                    var attributeNode = (AttributeSyntax) attribute.ApplicationSyntaxReference!.GetSyntax();
+                    var argumentNode = attributeNode.ArgumentList!.Arguments[0];
+                    
+                    diagnostics.Add(Diagnostic.Create(DiagnosticDescriptors.InvalidTokenRegex, argumentNode.GetLocation(), error));
+                }
                 
                 rules.Add(new LexerRule(regex, member.Name, ignore));
+                found = true;
+            }
+
+            if (!found)
+            {            
+                diagnostics.Add(Diagnostic.Create(DiagnosticDescriptors.MissingTokenAttribute, member.Locations[0]));
             }
         }
 
-        return new LexerDescriptor(tokenType, rules);
+        if (rules.Count == 0)
+        {
+            diagnostics.Add(Diagnostic.Create(DiagnosticDescriptors.EmptyTokenType, tokenType.Locations[0]));
+        }
+
+        return new Result<LexerDescriptor>(new LexerDescriptor(tokenType, rules), diagnostics);
+        
+        bool IsValidRegex(string regex, out string error)
+        {
+            try
+            {
+                _ = new Regex(regex);
+                error = default;
+                return true;
+            }
+            catch(Exception ex)
+            {
+                error = ex.Message;
+                return false;
+            }
+        }
     }
 
     private ParserDescriptor BuildParserDescriptor(INamedTypeSymbol parserType, INamedTypeSymbol tokenType)
