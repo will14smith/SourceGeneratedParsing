@@ -31,7 +31,7 @@ public partial class Csv
         Assert.Equal(new[] { 4, 5, 6 }, result.Lines[1].Fields);
     }
 
-    [Production("file", "($Field (@Comma $Field)*) @NewLine (line (@NewLine line)*)")]
+    [Production("file", "(Field (@Comma Field)*) @NewLine (line (@NewLine line)*)")]
     public record File(IReadOnlyList<string> Headers, IReadOnlyList<Line> Lines);
     [Production("line", "(number (@Comma number)*)")]
     public record Line(IReadOnlyList<int> Fields);

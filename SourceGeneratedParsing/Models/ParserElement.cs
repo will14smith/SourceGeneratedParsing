@@ -3,7 +3,7 @@
 public abstract record ParserElement
 {
     // atom
-    public record Terminal(string TokenName, bool String) : ParserElement
+    public record Terminal(string TokenName) : ParserElement
     {
         public override string ToString() => TokenName;
     }

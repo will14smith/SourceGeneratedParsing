@@ -54,7 +54,7 @@ public class ParserElementParser
                 
                 var input = _input.Slice(_offset);
 
-                if (input[0] == '$' || char.IsUpper(input[0]))
+                if ( char.IsUpper(input[0]))
                 {
                     var len = 1;
                     while(len < input.Length && char.IsLetterOrDigit(input[len])) { len++; }
@@ -270,16 +270,8 @@ public class ParserElementParser
             {
                 fixed (char* ptr = token.Span)
                 {
-                    if (token.Span[0] == '$')
-                    {
-                        var identifier = new string(ptr, 1, token.Span.Length - 1);
-                        return new ParserElement.Terminal(identifier, true);
-                    }
-                    else
-                    {
-                        var identifier = new string(ptr, 0, token.Span.Length);
-                        return new ParserElement.Terminal(identifier, false);
-                    }
+                    var identifier = new string(ptr, 0, token.Span.Length);
+                    return new ParserElement.Terminal(identifier);
                 }
             }
         }
